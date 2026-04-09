@@ -1,4 +1,10 @@
+# Environment
 .env
+
+# Claude
+.claude/
+
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
