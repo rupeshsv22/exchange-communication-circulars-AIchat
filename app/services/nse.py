@@ -10,18 +10,37 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# NSE requires browser-like headers to avoid bot blocking
+# Exact headers copied from browser DevTools / curl.
+# Keep in sync with what NSE expects — update User-Agent / sec-ch-ua if blocked.
 NSE_HEADERS = {
-    "User-Agent": (
+    "accept": "*/*",
+    "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+    "dnt": "1",
+    "priority": "u=1, i",
+    "referer": "https://www.nseindia.com/resources/exchange-communication-circulars",
+    "sec-ch-ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Microsoft Edge";v="146"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "user-agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
+        "Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0"
     ),
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.nseindia.com/",
-    "Connection": "keep-alive",
 }
+
+
+def _get_headers() -> dict[str, str]:
+    """
+    Build the final headers dict, injecting the Cookie from settings if set.
+    Cookie is loaded from NSE_COOKIE in .env — update it there when it expires.
+    """
+    headers = dict(NSE_HEADERS)
+    if settings.nse_cookie:
+        headers["cookie"] = settings.nse_cookie
+    return headers
 
 
 def fetch_circulars() -> list[dict[str, Any]]:
@@ -29,13 +48,16 @@ def fetch_circulars() -> list[dict[str, Any]]:
     Fetch the list of NSE circulars from the official API.
     Returns a list of circular metadata dicts.
     """
-    with httpx.Client(headers=NSE_HEADERS, follow_redirects=True, timeout=30) as client:
-        # Warm up: visit homepage inside the same context to obtain session cookies
-        try:
-            client.get(settings.nse_base_url)
-            time.sleep(1)  # small delay to mimic human behaviour
-        except httpx.HTTPError as exc:
-            logger.warning("NSE homepage warm-up failed", error=str(exc))
+    headers = _get_headers()
+
+    with httpx.Client(headers=headers, follow_redirects=True, timeout=30) as client:
+        # If no cookie is configured, do a homepage warm-up to get session cookies
+        if not settings.nse_cookie:
+            try:
+                client.get(settings.nse_base_url)
+                time.sleep(1)
+            except httpx.HTTPError as exc:
+                logger.warning("NSE homepage warm-up failed", error=str(exc))
 
         logger.info("Fetching NSE circulars", url=settings.nse_circulars_url)
         try:

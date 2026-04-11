@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # NSE
     nse_circulars_url: str = "https://www.nseindia.com/api/circulars"
     nse_base_url: str = "https://www.nseindia.com"
+    # Paste the full Cookie header value from browser DevTools here.
+    # Cookies expire — update this in .env whenever requests start failing.
+    nse_cookie: str = ""
 
     # Chunking
     chunk_size: int = 500

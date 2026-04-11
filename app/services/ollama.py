@@ -7,16 +7,17 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Used for general topic queries — brief bullet-point answer
+# brief: 2-3 bullet points for quick topic queries
 BRIEF_PROMPT = """\
 You are a financial assistant specialized in NSE circulars. Answer ONLY from the context below.
 
 STRICT OUTPUT FORMAT — follow exactly:
 • <one-line finding> [NSE({{circNumber}})]
 • <one-line finding> [NSE({{circNumber}})]
-(2-3 bullets max, no extra text, no summaries, no introductions)
+(2-3 bullets max — only include circulars relevant to the question, skip unrelated ones.
+No extra text, no summaries, no introductions, no "No relevant circular found" bullets.)
 
-If the answer is not in the context, output exactly: No relevant circular found
+If NONE of the circulars in the context are relevant, output exactly: No relevant circular found
 
 Example of correct output:
 • ST-ASM surveillance measure applied to XYZ Ltd shares [NSE(73500)]
@@ -28,7 +29,33 @@ Context:
 Question: {question}
 Answer:"""
 
-# Used when a specific circular number is requested — full structured details
+# full: comprehensive explanation + all relevant circulars for topic queries
+FULL_PROMPT = """\
+You are a financial assistant specialized in NSE circulars. Answer ONLY from the context below.
+
+First write a 2-3 sentence explanation of the topic.
+
+Then for EACH circular in the context output this block — do not skip any circular:
+
+[NSE(<circNumber>)] <subject>
+Date       : <date>
+Department : <department if present>
+Details    : <full narrative — include every scheme name, ISIN, category, allotment date,
+             deadline, instruction, and any other data present. Do NOT summarise tables —
+             reproduce every row as a bullet.>
+• <row/point 1>
+• <row/point 2>
+  ...
+
+If the answer is not in the context, output exactly: No relevant circular found
+
+Context:
+{context}
+
+Question: {question}
+Answer:"""
+
+# detail: full structured output for a specific circular number lookup
 DETAIL_PROMPT = """\
 You are a financial assistant specialized in NSE circulars. Answer ONLY from the context below.
 
@@ -52,8 +79,18 @@ Question: {question}
 Answer:"""
 
 
-def build_prompt(context: str, question: str, detail_mode: bool = False) -> str:
-    template = DETAIL_PROMPT if detail_mode else BRIEF_PROMPT
+def build_prompt(
+    context: str,
+    question: str,
+    detail_mode: bool = False,
+    full_mode: bool = False,
+) -> str:
+    if detail_mode:
+        template = DETAIL_PROMPT
+    elif full_mode:
+        template = FULL_PROMPT
+    else:
+        template = BRIEF_PROMPT
     return template.format(context=context, question=question)
 
 
